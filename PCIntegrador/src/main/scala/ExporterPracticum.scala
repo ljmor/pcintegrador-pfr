@@ -16,7 +16,7 @@ implicit object CustomFormat extends DefaultCSVFormat {
 
 object Exporter {
   @main
-  def exportFunc() =
+  def exportFunc() = {
     // Archivo dsAlienacionesXTorneo
     val rutaAlTor = "C:\\Users\\ljmor\\Documents\\Universidad\\Ciclo03\\Practicum1.1\\Bim02\\DataSets\\dsAlineacionesXTorneo-2.csv"
     val readerAlTor = CSVReader.open(new File(rutaAlTor))
@@ -55,6 +55,19 @@ object Exporter {
     dataForStadiums(partidosGoles).foreach(insert => insert.run.transact(xa).unsafeRunSync())
     dataForTournaments(partidosGoles).foreach(insert => insert.run.transact(xa).unsafeRunSync())
     */
+
+
+    // Sentencias SELECT para responder a preguntas
+    println("Pregunta01--------------------------------------------------------------------------------------------")
+    pregunta01().transact(xa).unsafeRunSync().foreach(println)
+    println("Pregunta02--------------------------------------------------------------------------------------------")
+    pregunta02().transact(xa).unsafeRunSync().foreach(println)
+    println("Pregunta03--------------------------------------------------------------------------------------------")
+    pregunta03().transact(xa).unsafeRunSync().foreach(println)
+    println("Pregunta04--------------------------------------------------------------------------------------------")
+    pregunta04().transact(xa).unsafeRunSync().foreach(println)
+
+  }
 
   // Metodo para el reemplazo del valor NA por 0 para columnas de tipo entero o real
   def defaultValue(text: String): Double =
@@ -159,37 +172,38 @@ object Exporter {
   }
 
   // Funciones para el 2do método de inserción de datos
-  def dataForPlayers(data: List[Map[String, String]]) =
+  def dataForPlayers(data: List[Map[String, String]]) = {
     val playerTuple =
       data.distinctBy(_("squads_player_id"))
-      .map(row =>
+        .map(row =>
           (row("squads_player_id"),
-          defaultValue(row("players_female")).toInt,
-          row("players_birth_date"),
-          row("players_given_name"),
-          row("players_family_name")))
-      .map(upt =>
-        sql"""
+            defaultValue(row("players_female")).toInt,
+            row("players_birth_date"),
+            row("players_given_name"),
+            row("players_family_name")))
+        .map(upt =>
+          sql"""
           INSERT INTO players (squads_player_id, players_female, players_birth_date, players_given_name, players_family_name)
           VALUES (${upt._1}, ${upt._2}, ${upt._3}, ${upt._4}, ${upt._5});
            """.update)
 
     playerTuple
+  }
 
 
-  def dataForSquads(data: List[Map[String, String]]) =
+  def dataForSquads(data: List[Map[String, String]]) = {
     val squadTuple =
       data
         .map(row =>
-            (row("squads_player_id"),
-              row("squads_tournament_id"),
-              row("squads_team_id"),
-              defaultValue(row("players_forward")).toInt,
-              defaultValue(row("players_midfielder")).toInt,
-              defaultValue(row("players_defender")).toInt,
-              defaultValue(row("players_goal_keeper")).toInt,
-              row("squads_position_name"),
-              defaultValue(row("squads_shirt_number")).toInt))
+          (row("squads_player_id"),
+            row("squads_tournament_id"),
+            row("squads_team_id"),
+            defaultValue(row("players_forward")).toInt,
+            defaultValue(row("players_midfielder")).toInt,
+            defaultValue(row("players_defender")).toInt,
+            defaultValue(row("players_goal_keeper")).toInt,
+            row("squads_position_name"),
+            defaultValue(row("squads_shirt_number")).toInt))
         .map(upt =>
           sql"""
             INSERT INTO squads (squads_player_id, squads_tournament_id, squads_team_id, players_forward, players_defender, players_midfielder, players_goal_keeper, squads_position_name, squads_shirt_number)
@@ -197,9 +211,10 @@ object Exporter {
              """.update)
 
     squadTuple
+  }
 
 
-  def dataForStadiums(data: List[Map[String, String]]) =
+  def dataForStadiums(data: List[Map[String, String]]) = {
     val stadiumTuple =
       data.distinctBy(_("matches_stadium_id"))
         .map(row =>
@@ -215,9 +230,10 @@ object Exporter {
                """.update)
 
     stadiumTuple
+  }
 
 
-  def dataForTournaments(data: List[Map[String, String]]) =
+  def dataForTournaments(data: List[Map[String, String]]) = {
     val tournamentTuple =
       data.distinctBy(_("tournaments_tournament_name"))
         .map(row =>
@@ -233,5 +249,51 @@ object Exporter {
                  """.update)
 
     tournamentTuple
+  }
 
+  // Preguntas a responder con SELECT
+  // 1. ¿Cuántos jugadores ha tenido cada equipo en total?
+  def pregunta01(): ConnectionIO[List[(String, Int)]] = {
+    sql"""
+         SELECT squads_team_id, COUNT(DISTINCT squads_player_id) AS num_players
+         FROM Squads
+         GROUP BY squads_team_id;
+       """
+      .query[(String, Int)]
+      .to[List]
+  }
+
+  // 2. ¿Cuántos partidos se jugaron en cada torneo?
+  def pregunta02(): ConnectionIO[List[(String, Int, Int)]] = {
+    sql"""
+           SELECT tournaments_tournament_name, tournaments_year, COUNT(*) AS num_matches
+           FROM Matches
+           GROUP BY tournaments_tournament_name, tournaments_year;
+         """
+      .query[(String, Int, Int)]
+      .to[List]
+  }
+
+  // 3. ¿Cuál es el estadio con la capacidad más grande?
+  def pregunta03(): ConnectionIO[List[(String, Int)]] = {
+    sql"""
+             SELECT stadiums_stadium_name, stadiums_stadium_capacity
+             FROM Stadiums
+             ORDER BY stadiums_stadium_capacity DESC
+             LIMIT 1;
+           """
+      .query[(String, Int)]
+      .to[List]
+  }
+
+  // 4. ¿Cuál es la cantidad promedio de goles marcados por partido en cada estadio?
+  def pregunta04(): ConnectionIO[List[(String, Double)]] = {
+    sql"""
+               SELECT matches_stadium_id, AVG(matches_home_team_score + matches_away_team_score) AS avg_goals
+               FROM Matches
+               GROUP BY matches_stadium_id;
+             """
+      .query[(String, Double)]
+      .to[List]
+  }
 }

@@ -158,7 +158,7 @@ object GraficasPracticum {
   // Gráficas a partir de la BD
   // Gráfico de barras de goles por equipo
     def golesEquipo(): ConnectionIO[List[(String, Double)]] = {
-    val golesPorEquipo = sql"""
+    sql"""
       SELECT g.goals_team_id, CAST(COUNT(*) AS REAL) AS goles
       FROM goals g
       GROUP BY g.goals_team_id
@@ -167,8 +167,6 @@ object GraficasPracticum {
    """
     .query[(String, Double)]
     .to[List]
-
-    golesPorEquipo
   }
 
   def graficaGolesEquipo(data: List[(String, Double)]) = {
